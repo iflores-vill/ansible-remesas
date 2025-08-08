@@ -1,6 +1,10 @@
 ---
-- name: Reinicias servicios de Httpd
-  task:
+- name: "MyLAB - Remesas Test"
+  hosts: localhost
+  connection: localhost
+  gather_facts: false
+
+  tasks:
     # Iniciar IBM HTTP Server
     - name: BBVA Provincial | Despliegue WAS | Verificar si IBM HTTP Server adminctl existe
       ansible.builtin.stat:
