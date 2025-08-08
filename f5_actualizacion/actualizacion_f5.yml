@@ -1,0 +1,107 @@
+---
+- name: Actualizar F5
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Obtener información del sistema F5
+      f5networks.f5_modules.bigip_device_info:
+        provider:
+          server: "{{ f5_host }}"
+          user: "{{ lookup('ansible.builtin.env', 'F5_USER') }}"
+          password: "{{ lookup('ansible.builtin.env', 'F5_PASSWORD') }}"
+          validate_certs: "{{ validate_certs | default(false) }}"
+          server_port: 443
+          transport: rest
+        gather_subset:
+          - system-info
+          - software-volumes
+      register: info_f5
+      delegate_to: localhost
+
+    - name: Mostrar versión actual de F5
+      ansible.builtin.debug:
+        msg: "Actual BIG-IP versión: {{ info_f5.system_info.product_version }}"
+
+    - name: Mostrar información de volúmenes
+      ansible.builtin.debug:
+        msg: "{{ info_f5.software_volumes }}"
+
+    - name: DEBUG
+      ansible.builtin.debug:
+        msg: "tmsh install sys software image /shared/images/{{ imagen }} volume {{ f5_volumen }}"
+
+    - name: Verificar que la imagen existe en el F5
+      f5networks.f5_modules.bigip_command:
+        provider:
+          server: "{{ f5_host }}"
+          user: "{{ lookup('ansible.builtin.env', 'F5_USER') }}"
+          password: "{{ lookup('ansible.builtin.env', 'F5_PASSWORD') }}"
+          validate_certs: "{{ validate_certs | default(false) }}"
+          server_port: 443
+          transport: rest
+        commands: "ls -l /shared/images/{{ imagen }}"
+      register: image_check
+      delegate_to: localhost
+
+    - name: Instalar nueva actualización de F5
+      f5networks.f5_modules.bigip_software_install:
+        provider:
+          server: "{{ f5_host }}"
+          user: "{{ lookup('ansible.builtin.env', 'F5_USER') }}"
+          password: "{{ lookup('ansible.builtin.env', 'F5_PASSWORD') }}"
+          validate_certs: "{{ validate_certs | default(false) }}"
+          server_port: 443
+          transport: rest
+        image: "{{ imagen }}"
+        state: "installed"
+        volume: "{{ f5_volumen }}"
+      register: install_result
+      delegate_to: localhost
+
+    - name: Establecer volumen de arranque en nuevo volumen
+      f5networks.f5_modules.bigip_command:
+        provider:
+          server: "{{ f5_host }}"
+          user: "{{ lookup('ansible.builtin.env', 'F5_USER') }}"
+          password: "{{ lookup('ansible.builtin.env', 'F5_PASSWORD') }}"
+          validate_certs: "{{ validate_certs | default(false) }}"
+          server_port: 443
+          transport: rest
+        commands:
+          - "tmsh modify sys software boot-volume {{ f5_volumen }}"
+      register: set_boot_volume
+      delegate_to: localhost
+
+    - name: Copiar configuración del volumen activo al nuevo
+      f5networks.f5_modules.bigip_command:
+        provider:
+          server: "{{ f5_host }}"
+          user: "{{ lookup('ansible.builtin.env', 'F5_USER') }}"
+          password: "{{ lookup('ansible.builtin.env', 'F5_PASSWORD') }}"
+          validate_certs: "{{ validate_certs | default(false) }}"
+          server_port: 443
+          transport: rest
+        commands:
+          - "tmsh load sys config from-volume {{ volumen_actual }}"
+          - "tmsh save sys config to-volume {{ f5_volumen }}"
+      delegate_to: localhost
+      when: copiar_config | default(false) | bool
+
+    - name: Verificar si la actualización fue exitosa
+      ansible.builtin.debug:
+        var: install_result
+
+    - name: Obtener información del sistema F5
+      f5networks.f5_modules.bigip_device_info:
+        provider:
+          server: "{{ f5_host }}"
+          user: "{{ lookup('ansible.builtin.env', 'F5_USER') }}"
+          password: "{{ lookup('ansible.builtin.env', 'F5_PASSWORD') }}"
+          validate_certs: "{{ validate_certs | default(false) }}"
+          server_port: 443
+          transport: rest
+        gather_subset:
+          - system-info
+          - software-volumes
+      register: info_f5
+      delegate_to: localhost

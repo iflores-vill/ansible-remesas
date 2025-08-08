@@ -1,0 +1,117 @@
+---
+- name: Verificar estado del Nodeagent de Websphere
+  ansible.builtin.command: >
+    {{ parchado_websphere_node_dir }}/bin/serverStatus.sh nodeagent
+    -username {{ lookup('env', 'was_username') }}
+    -password {{ lookup('env', 'was_password') }}
+  register: estado_nodeagent_websphere
+  changed_when: "'ADMU0509I' in estado_nodeagent_websphere.stdout"
+  ignore_errors: true
+
+- name: Nodeagent de Websphere ya está iniciado
+  when: "'ADMU0508I' in estado_nodeagent_websphere.stdout"
+  ansible.builtin.debug:
+    msg: "{{ estado_nodeagent_websphere.stdout_lines }}"
+
+- name: Bloque para iniciar Nodeagent de Websphere
+  when:
+    - "'ADMU0509I' in estado_nodeagent_websphere.stdout"
+  block:
+    - name: Iniciar Nodeagent de Websphere
+      ansible.builtin.command: "{{ parchado_websphere_node_dir }}/bin/startNode.sh"
+      register: resultado_iniciar_nodeagent
+      changed_when: "'ADMU3000I' in resultado_iniciar_nodeagent.stdout"
+      ignore_errors: true
+
+    - name: Nodeagent de Websphere iniciado correctamente
+      ansible.builtin.debug:
+        msg: "{{ resultado_iniciar_nodeagent.stdout_lines }}"
+  rescue:
+    - name: Nodeagent de Websphere NO se ha iniciado correctamente
+      ansible.builtin.debug:
+        msg: "{{ resultado_iniciar_nodeagent.stdout_lines }}"
+
+- name: Bloque para iniciar servidores de Websphere
+  block:
+    - name: Iniciar servidores de Websphere
+      ansible.builtin.command: "{{ parchado_websphere_node_dir }}/bin/startServer.sh {{ item }}"
+      register: resultado_iniciar_servidor
+      changed_when: "'ADMU4000I' in resultado_iniciar_servidor.stdout"
+      loop: "{{ websphere_server_list }}"
+      loop_control:
+        label: "Iniciar servidor {{ item }}"
+      ignore_errors: true
+
+    - name: Iniciar clusters de Websphere
+      ansible.builtin.command: "{{ parchado_websphere_node_dir }}/bin/startServer.sh {{ item }}"
+      register: resultado_iniciar_cluster
+      changed_when: "'ADMU4000I' in resultado_iniciar_cluster.stdout"
+      loop: "{{ websphere_clusters }}"
+      loop_control:
+        label: "Iniciar cluster {{ item }}"
+      ignore_errors: true
+
+    - name: Servidores de Websphere iniciados correctamente
+      ansible.builtin.debug:
+        msg: "{{ item.stdout_lines }}"
+      loop: "{{ resultado_iniciar_servidor.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+  rescue:
+    - name: Servidores de Websphere ya estaban iniciados
+      when: item.rc == 255
+      ansible.builtin.debug:
+        msg: "{{ item.stdout_lines }}"
+      loop: "{{ resultado_iniciar_servidor.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Error al iniciar servidores de Websphere
+      when: item.rc != 255
+      ansible.builtin.debug:
+        msg: "{{ item.stdout_lines }}"
+      loop: "{{ resultado_iniciar_servidor.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+- name: Copiar script Jython a los servidores
+  ansible.builtin.copy:
+    src: files/start_clusters.py
+    dest: /tmp/start_clusters.py
+    mode: '0755'
+
+- name: Iniciar clústeres de Websphere
+  ansible.builtin.command: >
+    {{ parchado_websphere_dmgr_dir }}/bin/wsadmin.sh -lang jython -port 8879
+    -username {{ lookup('env', 'was_username') }}
+    -password {{ lookup('env', 'was_password') }}
+    -f /tmp/start_clusters.py {{ item }}
+  loop: "{{ lista_clusters_websphere }}"
+  async: 300
+  poll: 20
+  register: trabajos_iniciar_cluster
+  when: lista_clusters_websphere is defined and lista_clusters_websphere | length > 0
+  changed_when: false
+
+- name: Iniciar el servicio instana-agent
+  ansible.builtin.service:
+    name: instana-agent
+    state: started
+  changed_when: false
+
+- name: Verificar estado del servicio instana-agent
+  ansible.builtin.command: systemctl status instana-agent.service
+  register: estado_instana
+  changed_when: false
+
+- name: Mostrar estado del servicio instana-agent
+  ansible.builtin.debug:
+    msg: "{{ estado_instana.stdout_lines }}"
+
+- name: Iniciar adminctl en IBM HTTP Server
+  ansible.builtin.command: /ihs/bin/adminctl start
+  changed_when: false
+
+- name: Iniciar apachectl en IBM HTTP Server
+  ansible.builtin.command: /ihs/bin/apachectl start
+  changed_when: false

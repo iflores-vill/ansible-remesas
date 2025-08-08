@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<agent-input>
+  <variables>
+    <variable name='sharedLocation' value='/opt/IBM/IMShared'/>
+  </variables>
+  <server>
+    <repository location='/opt/installers/supplements'/>
+    <repository location='/opt/installers/was'/>
+    <repository location='/opt/installers/wct'/>
+    <repository location='/opt/installers/fixsupp'/>
+    <repository location='/opt/installers/fixwas'/>
+    <repository location='/opt/installers/sdk'/>
+  </server>
+  <preference name='com.ibm.cic.common.core.preferences.eclipseCache' value='${sharedLocation}'/>
+  <preference name='offering.service.repositories.areUsed' value='false'/>
+</agent-input>

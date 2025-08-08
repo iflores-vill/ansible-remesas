@@ -1,0 +1,16 @@
+PROD                      = DB2_SERVER_EDITION
+FILE                      = {{ db2_install_path }}
+LIC_AGREEMENT             = {{ db2_license_agreement }}
+INSTALL_TYPE              = {{ db2_install_type }}
+
+INSTANCE                  = DB2_INST
+DB2_INST.NAME             = {{ db2_instance_name }}
+DB2_INST.GROUP_NAME       = {{ db2_instance_group }}
+DB2_INST.HOME_DIRECTORY   = {{ db2_instance_home }}
+DB2_INST.PASSWORD         = {{ db2_instance_password }}
+DB2_INST.AUTOSTART        = {{ db2_instance_autostart }}
+DB2_INST.START_DURING_INSTALL = {{ db2_instance_start_during_install }}
+
+DB2_INST.FENCED_USERNAME  = {{ db2_fenced_username }}
+DB2_INST.FENCED_GROUP_NAME = {{ db2_fenced_group }}
+DB2_INST.FENCED_PASSWORD  = {{ db2_fenced_password }}

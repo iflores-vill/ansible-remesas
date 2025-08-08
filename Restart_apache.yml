@@ -1,0 +1,22 @@
+---
+- name: Reinicias servicios de Httpd
+  task:
+    # Iniciar IBM HTTP Server
+    - name: BBVA Provincial | Despliegue WAS | Verificar si IBM HTTP Server adminctl existe
+      ansible.builtin.stat:
+        path: "/ihs/bin/adminctl"
+      register: ihs_adminctl_exists
+
+    - name: BBVA Provincial | Despliegue WAS | Iniciar adminctl en IBM HTTP Server
+      ansible.builtin.command: "/ihs/bin/adminctl stop"
+      register: ihs_admin_result
+      when: ihs_adminctl_exists.stat.exists
+      failed_when: false
+      changed_when: ihs_admin_result.rc == 0
+
+    - name: BBVA Provincial | Despliegue WAS | Iniciar apachectl en IBM HTTP Server
+      ansible.builtin.command: "/ihs/bin/apachectl start"
+      register: ihs_apache_result
+      when: ihs_apachectl_exists.stat.exists
+      failed_when: false
+      changed_when: ihs_apache_result.rc == 0

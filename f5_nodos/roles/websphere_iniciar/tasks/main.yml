@@ -1,0 +1,173 @@
+---
+- name: Iniciar servicios de WebSphere
+  block:
+    - name: BBVA Provincial | Despliegue WAS | Detener todos los procesos relacionados con WebSphere e IHS
+      ansible.builtin.shell: |
+        pids=$(pgrep -f -i -d' ' "was|websphere|dmgr|nodeagent|server1|java|httpd|apache")
+        if [ -n "$pids" ]; then
+          echo "Killing WAS and IHS related PIDs: $pids"
+          kill -9 $pids
+        else
+          echo "No WAS or IHS related processes found"
+        fi
+      ignore_errors: true
+      changed_when: true 
+ 
+    # Verificar estado inicial del Deployment Manager
+    - name: BBVA Provincial | Despliegue WAS | Verificar si Deployment Manager ya está corriendo
+      ansible.builtin.command:
+        cmd: "/was/profiles/Dmgr/bin/serverStatus.sh dmgr"
+      register: dmgr_status_check
+      failed_when: false
+      changed_when: false
+
+    - name: BBVA Provincial | Despliegue WAS | Mostrar estado inicial del Deployment Manager
+      ansible.builtin.debug:
+        msg: "Estado del Deployment Manager: {{ 'CORRIENDO' if 'cannot be reached' not in dmgr_status_check.stdout else 'DETENIDO' }}"
+
+    - name: BBVA Provincial | Despliegue WAS | Iniciar Deployment Manager
+      ansible.builtin.command:
+        cmd: "/was/profiles/Dmgr/bin/startManager.sh"
+      register: dmgr_start_result
+      when: "'cannot be reached' in dmgr_status_check.stdout or 'stopped' in dmgr_status_check.stdout"
+      failed_when: false
+      changed_when: dmgr_start_result.rc == 0
+
+    - name: BBVA Provincial | Despliegue WAS | Esperar a que Deployment Manager esté disponible
+      ansible.builtin.command:
+        cmd: "/was/profiles/Dmgr/bin/serverStatus.sh dmgr"
+      register: dmgr_wait_status
+      retries: 30
+      delay: 10
+      when: "'cannot be reached' in dmgr_status_check.stdout or 'stopped' in dmgr_status_check.stdout"
+      changed_when: false
+
+    - name: BBVA Provincial | Despliegue WAS | Verificar estado final del Deployment Manager
+      ansible.builtin.command:
+        cmd: "/was/profiles/Dmgr/bin/serverStatus.sh dmgr"
+      register: dmgr_final_status
+      changed_when: false
+      failed_when: "'cannot be reached' in dmgr_final_status.stdout or 'stopped' in dmgr_final_status.stdout"
+
+    # Verificar estado inicial del Nodeagent
+    - name: BBVA Provincial | Despliegue WAS | Verificar si Nodeagent ya está corriendo
+      ansible.builtin.command:
+        cmd: "/was/profiles/Appserver01/bin/serverStatus.sh nodeagent"
+      register: nodeagent_status_check
+      failed_when: false
+      changed_when: false
+
+    - name: BBVA Provincial | Despliegue WAS | Mostrar estado inicial del Nodeagent
+      ansible.builtin.debug:
+        msg: "Estado del Nodeagent: {{ 'CORRIENDO' if 'cannot be reached' not in nodeagent_status_check.stdout else 'DETENIDO' }}"
+
+    - name: BBVA Provincial | Despliegue WAS | Iniciar Nodeagent
+      ansible.builtin.command:
+        cmd: "/was/profiles/Appserver01/bin/startNode.sh"
+      register: nodeagent_start_result
+      when: "'cannot be reached' in nodeagent_status_check.stdout or 'stopped' in nodeagent_status_check.stdout"
+      failed_when: false
+      changed_when: nodeagent_start_result.rc == 0
+
+    - name: BBVA Provincial | Despliegue WAS | Esperar a que Nodeagent esté disponible
+      ansible.builtin.command:
+        cmd: "/was/profiles/Appserver01/bin/serverStatus.sh nodeagent"
+      register: nodeagent_wait_status
+      retries: 30
+      delay: 10
+      when: "'cannot be reached' in nodeagent_status_check.stdout or 'stopped' in nodeagent_status_check.stdout"
+      changed_when: false
+
+    - name: BBVA Provincial | Despliegue WAS | Verificar estado final del Nodeagent
+      ansible.builtin.command:
+        cmd: "/was/profiles/Appserver01/bin/serverStatus.sh nodeagent"
+      register: nodeagent_final_status
+      changed_when: false
+      failed_when: "'cannot be reached' in nodeagent_final_status.stdout or 'stopped' in nodeagent_final_status.stdout"
+
+    # Verificar estado inicial del Application Server
+    - name: BBVA Provincial | Despliegue WAS | Verificar si Application Server ya está corriendo
+      ansible.builtin.command:
+        cmd: "/was/profiles/Appserver01/bin/serverStatus.sh server1"
+      register: appserver_status_check
+      failed_when: false
+      changed_when: false
+
+    - name: BBVA Provincial | Despliegue WAS | Mostrar estado inicial del Application Server
+      ansible.builtin.debug:
+        msg: "Estado del Application Server: {{ 'CORRIENDO' if 'cannot be reached' not in appserver_status_check.stdout else 'DETENIDO' }}"
+
+    - name: BBVA Provincial | Despliegue WAS | Iniciar Application Server
+      ansible.builtin.command:
+        cmd: "/was/profiles/Appserver01/bin/startServer.sh server1"
+      register: appserver_start_result
+      when: "'cannot be reached' in appserver_status_check.stdout or 'stopped' in appserver_status_check.stdout"
+      failed_when: false
+      changed_when: appserver_start_result.rc == 0
+
+    - name: BBVA Provincial | Despliegue WAS | Esperar a que Application Server esté disponible
+      ansible.builtin.command:
+        cmd: "/was/profiles/Appserver01/bin/serverStatus.sh server1"
+      register: appserver_wait_status
+      retries: 30
+      delay: 10
+      when: "'cannot be reached' in appserver_status_check.stdout or 'stopped' in appserver_status_check.stdout"
+      failed_when: false
+      changed_when: false
+
+    - name: BBVA Provincial | Despliegue WAS | Verificar estado final del Application Server
+      ansible.builtin.command:
+        cmd: "/was/profiles/Appserver01/bin/serverStatus.sh server1"
+      register: appserver_final_status
+      changed_when: false
+      failed_when: false
+
+    # Iniciar IBM HTTP Server
+    - name: BBVA Provincial | Despliegue WAS | Verificar si IBM HTTP Server adminctl existe
+      ansible.builtin.stat:
+        path: "/ihs/bin/adminctl"
+      register: ihs_adminctl_exists
+
+    - name: BBVA Provincial | Despliegue WAS | Iniciar adminctl en IBM HTTP Server
+      ansible.builtin.command: "/ihs/bin/adminctl stop"
+      register: ihs_admin_result
+      when: ihs_adminctl_exists.stat.exists
+      failed_when: false
+      changed_when: ihs_admin_result.rc == 0
+
+    - name: BBVA Provincial | Despliegue WAS | Verificar si IBM HTTP Server apachectl existe
+      ansible.builtin.stat:
+        path: "/ihs/bin/apachectl"
+      register: ihs_apachectl_exists
+
+    - name: BBVA Provincial | Despliegue WAS | Iniciar apachectl en IBM HTTP Server
+      ansible.builtin.command: "/ihs/bin/apachectl start"
+      register: ihs_apache_result
+      when: ihs_apachectl_exists.stat.exists
+      failed_when: false
+      changed_when: ihs_apache_result.rc == 0
+
+    # Mostrar resumen final
+    - name: BBVA Provincial | Despliegue WAS | Mostrar estado de servicios WebSphere
+      ansible.builtin.debug:
+        msg:
+          - "=== ESTADO DE SERVICIOS WEBSPHERE ==="
+          - "Deployment Manager: {{ 'INICIADO' if 'STARTED' in dmgr_final_status.stdout else 'VERIFICAR MANUALMENTE' }}"
+          - "Nodeagent: {{ 'INICIADO' if 'STARTED' in nodeagent_final_status.stdout else 'VERIFICAR MANUALMENTE' }}"
+          - "Application Server: {{ 'INICIADO' if 'STARTED' in appserver_final_status.stdout else 'NO REQUERIDO (FEDERADO)' }}"
+
+    - name: BBVA Provincial | Despliegue WAS | Mostrar estado de IBM HTTP Server
+      ansible.builtin.debug:
+        msg:
+          - "=== ESTADO DE IBM HTTP SERVER ==="
+          - "IBM HTTP Server adminctl: {{ 'INICIADO' if ihs_admin_result.rc == 0 else 'NO DISPONIBLE/ERROR' }}"
+          - "IBM HTTP Server apachectl: {{ 'INICIADO' if ihs_apache_result.rc == 0 else 'NO DISPONIBLE/ERROR' }}"
+      when: ihs_adminctl_exists.stat.exists or ihs_apachectl_exists.stat.exists
+
+#  when:
+#    - inventory_hostname in groups['servidor_was'] | default([])
+
+  rescue:
+    - name: BBVA Provincial | Despliegue WAS | Error en el inicio de WebSphere
+      ansible.builtin.fail:
+        msg: "Error al iniciar servicios WebSphere en {{ inventory_hostname }}: {{ ansible_failed_result.msg | default('Error desconocido') }}"

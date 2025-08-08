@@ -1,0 +1,61 @@
+---
+- name: Reiniciar múltiples instancias WebSEAL por servidor
+  when:
+    - inventory_hostname in groups['webseal_servers']
+    - ansible_host is defined
+    - reverseProxies is defined
+    - reverseProxies | length > 0
+  block:
+    - name: Validar que existan instancias a reiniciar
+      ansible.builtin.fail:
+        msg: "No se encontraron instancias WebSEAL para reiniciar en {{ inventory_hostname }}"
+      when: reverseProxies is not defined or reverseProxies | length == 0
+
+    - name: Reiniciar instancias WebSEAL (restart_multiple)
+      ansible.builtin.uri:
+        url: "https://{{ ansible_host }}/wga/reverseproxy/restart_multiple"
+        method: POST
+        user: "{{ isva_user }}"
+        password: "{{ isva_password }}"
+        force_basic_auth: true
+        validate_certs: false
+        status_code: [200, 201, 202]
+        headers:
+          Accept: application/json
+          Content-Type: application/json
+        body_format: json
+        body:
+          instance_ids: "{{ reverseProxies }}"
+      register: restart_result
+
+    - name: Mostrar resultado del reinicio
+      ansible.builtin.debug:
+        msg: "Reinicio completado en {{ inventory_hostname }} para instancias: {{ reverseProxies | join(', ') }}"
+      when: restart_result.status in [200, 201, 202]
+
+    - name: Publicar cambios pendientes después del reinicio
+      ansible.builtin.uri:
+        url: "https://{{ ansible_host }}/admin/pending_changes"
+        method: POST
+        user: "{{ isva_user }}"
+        password: "{{ isva_password }}"
+        force_basic_auth: true
+        validate_certs: false
+        status_code: [200, 201, 202]
+        headers:
+          Accept: application/json
+          Content-Type: application/json
+        body_format: json
+        body:
+          type: publish
+      when: restart_result.status in [200, 201, 202]
+
+    - name: Confirmar publicación de cambios
+      ansible.builtin.debug:
+        msg: "Cambios publicados exitosamente en {{ inventory_hostname }}"
+      when: restart_result.status in [200, 201, 202]
+
+  rescue:
+    - name: Error en el reinicio de WebSEAL
+      ansible.builtin.fail:
+        msg: "Error al reiniciar instancias WebSEAL en {{ inventory_hostname }}: {{ ansible_failed_result.msg | default('Error desconocido') }}"

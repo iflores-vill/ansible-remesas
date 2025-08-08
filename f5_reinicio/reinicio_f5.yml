@@ -1,0 +1,186 @@
+---
+- name: Actualizar F5
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Obtener información del sistema F5
+      f5networks.f5_modules.bigip_device_info:
+        provider:
+          server: "{{ f5_host }}"
+          user: "{{ lookup('ansible.builtin.env', 'F5_USER') }}"
+          password: "{{ lookup('ansible.builtin.env', 'F5_PASSWORD') }}"
+          validate_certs: "{{ validate_certs | default(false) }}"
+          server_port: 443
+          transport: rest
+        gather_subset:
+          - system-info
+          - software-volumes
+      register: info_f5
+      delegate_to: localhost
+
+    - name: Establecer el sistema BIG-IP en modo offline (opcional)
+      f5networks.f5_modules.bigip_command:
+        provider:
+          server: "{{ f5_host }}"
+          user: "{{ lookup('ansible.builtin.env', 'F5_USER') }}"
+          password: "{{ lookup('ansible.builtin.env', 'F5_PASSWORD') }}"
+          validate_certs: "{{ validate_certs | default(false) }}"
+          server_port: 443
+          transport: rest
+        commands: "tmsh run sys failover offline"
+      register: failover_result
+      delegate_to: localhost
+      when: establecer_offline | default(false) | bool
+
+    - name: Mostrar el estado actual del volumen de arranque
+      f5networks.f5_modules.bigip_command:
+        provider:
+          server: "{{ f5_host }}"
+          user: "{{ lookup('ansible.builtin.env', 'F5_USER') }}"
+          password: "{{ lookup('ansible.builtin.env', 'F5_PASSWORD') }}"
+          validate_certs: "{{ validate_certs | default(false) }}"
+          server_port: 443
+          transport: rest
+        commands: "tmsh show sys software status"
+      register: software_status
+      delegate_to: localhost
+
+    - name: Mostrar información de estado del software
+      ansible.builtin.debug:
+        msg: "{{ software_status.stdout }}"
+
+    - name: Reiniciar y arrancar desde el nuevo volumen
+      f5networks.f5_modules.bigip_command:
+        provider:
+          server: "{{ f5_host }}"
+          user: "{{ lookup('ansible.builtin.env', 'F5_USER') }}"
+          password: "{{ lookup('ansible.builtin.env', 'F5_PASSWORD') }}"
+          validate_certs: "{{ validate_certs | default(false) }}"
+          server_port: 443
+          transport: rest
+        commands: "tmsh reboot volume {{ f5_volumen }}"
+      register: reboot_result
+      delegate_to: localhost
+
+    - name: Esperar a que el sistema esté disponible después del reinicio
+      ansible.builtin.wait_for:
+        host: "{{ f5_host }}"
+        port: 443
+        timeout: 600
+
+    - name: Verificar la configuración de servidores virtuales
+      f5networks.f5_modules.bigip_command:
+        provider:
+          server: "{{ f5_host }}"
+          user: "{{ lookup('ansible.builtin.env', 'F5_USER') }}"
+          password: "{{ lookup('ansible.builtin.env', 'F5_PASSWORD') }}"
+          validate_certs: "{{ validate_certs | default(false) }}"
+          server_port: 443
+          transport: rest
+        commands: "tmsh list /ltm virtual"
+      register: virtual_config
+      delegate_to: localhost
+      when: verificar_configuracion | default(false) | bool
+
+    - name: Verificar la configuración de pools
+      f5networks.f5_modules.bigip_command:
+        provider:
+          server: "{{ f5_host }}"
+          user: "{{ lookup('ansible.builtin.env', 'F5_USER') }}"
+          password: "{{ lookup('ansible.builtin.env', 'F5_PASSWORD') }}"
+          validate_certs: "{{ validate_certs | default(false) }}"
+          server_port: 443
+          transport: rest
+        commands: "tmsh list /ltm pool"
+      register: pool_config
+      delegate_to: localhost
+      when: verificar_configuracion | default(false) | bool
+
+    - name: Verificar la configuración de VLANs
+      f5networks.f5_modules.bigip_command:
+        provider:
+          server: "{{ f5_host }}"
+          user: "{{ lookup('ansible.builtin.env', 'F5_USER') }}"
+          password: "{{ lookup('ansible.builtin.env', 'F5_PASSWORD') }}"
+          validate_certs: "{{ validate_certs | default(false) }}"
+          server_port: 443
+          transport: rest
+        commands: "tmsh list /net vlan"
+      register: vlan_config
+      delegate_to: localhost
+      when: verificar_configuracion | default(false) | bool
+
+    - name: Guardar configuración actual
+      f5networks.f5_modules.bigip_command:
+        provider:
+          server: "{{ f5_host }}"
+          user: "{{ lookup('ansible.builtin.env', 'F5_USER') }}"
+          password: "{{ lookup('ansible.builtin.env', 'F5_PASSWORD') }}"
+          validate_certs: "{{ validate_certs | default(false) }}"
+          server_port: 443
+          transport: rest
+        commands: "tmsh save sys config"
+      delegate_to: localhost
+
+    - name: Cambiar estado de failover a online
+      f5networks.f5_modules.bigip_command:
+        provider:
+          server: "{{ f5_host }}"
+          user: "{{ lookup('ansible.builtin.env', 'F5_USER') }}"
+          password: "{{ lookup('ansible.builtin.env', 'F5_PASSWORD') }}"
+          validate_certs: "{{ validate_certs | default(false) }}"
+          server_port: 443
+          transport: rest
+        commands: "tmsh run sys failover online"
+      when: liberar_offline | default(false) | bool
+      delegate_to: localhost
+
+    - name: Verificar estado de failover
+      f5networks.f5_modules.bigip_command:
+        provider:
+          server: "{{ f5_host }}"
+          user: "{{ lookup('ansible.builtin.env', 'F5_USER') }}"
+          password: "{{ lookup('ansible.builtin.env', 'F5_PASSWORD') }}"
+          validate_certs: "{{ validate_certs | default(false) }}"
+          server_port: 443
+          transport: rest
+        commands: "tmsh show cm failover-status"
+      register: failover_info
+      delegate_to: localhost
+
+    - name: Mostrar estado de failover
+      ansible.builtin.debug:
+        var: failover_info.devices
+
+    - name: Crear backup UCS
+      f5networks.f5_modules.bigip_ucs:
+        provider:
+          server: "{{ f5_host }}"
+          user: "{{ lookup('ansible.builtin.env', 'F5_USER') }}"
+          password: "{{ lookup('ansible.builtin.env', 'F5_PASSWORD') }}"
+          validate_certs: "{{ validate_certs | default(false) }}"
+          server_port: 443
+          transport: rest
+        ucs: "post_upgrade_{{ ansible_date_time.iso8601_basic_short }}.ucs"
+        state: present
+      when: crear_backup | default(false) | bool
+      delegate_to: localhost
+
+    - name: Obtener estado final del sistema
+      f5networks.f5_modules.bigip_device_info:
+        provider:
+          server: "{{ f5_host }}"
+          user: "{{ lookup('ansible.builtin.env', 'F5_USER') }}"
+          password: "{{ lookup('ansible.builtin.env', 'F5_PASSWORD') }}"
+          validate_certs: "{{ validate_certs | default(false) }}"
+          server_port: 443
+          transport: rest
+        gather_subset:
+          - system-info
+          - software-volumes
+      register: final_status
+      delegate_to: localhost
+
+    - name: Mostrar estado final del sistema
+      ansible.builtin.debug:
+        var: final_status

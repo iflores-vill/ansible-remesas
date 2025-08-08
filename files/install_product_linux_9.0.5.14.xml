@@ -1,0 +1,60 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<agent-input>
+  <variables>
+    <variable name='sharedLocation' value='/opt/IBM/IMShared'/>
+  </variables>
+  <server>
+    <repository location='/opt/installers/fixwas'/>
+    <repository location='/opt/installers/fixplg'/>
+    <repository location='/opt/installers/fixwct'/>
+    <repository location='/opt/installers/ihs'/>
+    <repository location='/opt/installers/plg'/>
+    <repository location='/opt/installers/wct'/>
+    <repository location='/opt/installers/was'/>
+    <repository location='/opt/installers/sdk'/>
+  </server>
+  <profile id='IBM HTTP Server V9.0' installLocation='/ihs'>
+    <data key='cic.selector.arch' value='x86_64'/>
+    <data key='user.ihs.allowNonRootSilentInstall' value='true'/>
+    <data key='user.ihs.httpPort' value='80'/>
+    <data key='user.ihs.http.server.service.name.key' value='IBMHTTPServerV9.0'/>
+    <data key='user.ihs.win.serverServicePassword' value='XjTveChg5ba6olBVMK/Reg=='/>
+    <data key='user.ihs.http.server.service.name' value='IBM HTTP Server V9.0'/>
+    <data key='user.ihs.win.serverServiceLogOnAsLocalSystem' value='true'/>
+    <data key='user.ihs.win.serverServiceUser' value='root'/>
+  </profile>
+  <install>
+    <!-- IBM HTTP Server for WebSphere Application Server 9.0.5.14 -->
+    <offering profile='IBM HTTP Server V9.0' id='com.ibm.websphere.IHS.v90' version='9.0.5014.20221031_0911' features='core.feature'/>
+    <!-- IBM SDK, Java Technology Edition, Version 8 8.0.5.35 -->
+    <offering profile='IBM HTTP Server V9.0' id='com.ibm.java.jdk.v8' version='8.0.5035.20190422_0948' features='com.ibm.sdk.8'/>
+  </install>
+  <profile id='IBM WebSphere Application Server V9.0' installLocation='/was'>
+    <data key='cic.selector.arch' value='x86_64'/>
+  </profile>
+  <install>
+    <!-- IBM WebSphere Application Server Network Deployment  9.0.5.14 -->
+    <offering profile='IBM WebSphere Application Server V9.0' id='com.ibm.websphere.ND.v90' version='9.0.5014.20221031_0911' features='core.feature,ejbdeploy,thinclient,embeddablecontainer'/>
+    <!-- IBM SDK, Java Technology Edition, Version 8 8.0.5.35 -->
+    <offering profile='IBM WebSphere Application Server V9.0' id='com.ibm.java.jdk.v8' version='8.0.5035.20190422_0948' features='com.ibm.sdk.8'/>
+  </install>
+  <profile id='Web Server Plug-ins for IBM WebSphere Application Server V9.0' installLocation='/plugins'>
+    <data key='cic.selector.arch' value='x86_64'/>
+  </profile>
+  <install>
+    <!-- Web Server Plug-ins for IBM WebSphere Application Server 9.0.5.14 -->
+    <offering profile='Web Server Plug-ins for IBM WebSphere Application Server V9.0' id='com.ibm.websphere.PLG.v90' version='9.0.5014.20221031_0911' features='core.feature'/>
+    <!-- IBM SDK, Java Technology Edition, Version 8 8.0.5.35 -->
+    <offering profile='Web Server Plug-ins for IBM WebSphere Application Server V9.0' id='com.ibm.java.jdk.v8' version='8.0.5035.20190422_0948' features='com.ibm.sdk.8'/>
+  </install>
+  <profile id='WebSphere Customization Toolbox V9.0' installLocation='/Toolbox'>
+    <data key='cic.selector.arch' value='x86_64'/>
+  </profile>
+  <install>
+    <!-- WebSphere Customization Toolbox 9.0.5.14 -->
+    <offering profile='WebSphere Customization Toolbox V9.0' id='com.ibm.websphere.WCT.v90' version='9.0.5014.20221031_0911' features='core.feature,pct,zpmt,zmmt'/>
+    <!-- IBM SDK, Java Technology Edition, Version 8 8.0.5.35 -->
+    <offering profile='WebSphere Customization Toolbox V9.0' id='com.ibm.java.jdk.v8' version='8.0.5035.20190422_0948' features='com.ibm.sdk.8'/>
+  </install>
+  <preference name='com.ibm.cic.common.core.preferences.eclipseCache' value='${sharedLocation}'/>
+</agent-input>

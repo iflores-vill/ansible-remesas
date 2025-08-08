@@ -1,0 +1,70 @@
+---
+- name: "AAP - EXECUTION ENVIRONMENT - INFORMATION & COLLECTION LIST - V1"
+  hosts: localhost
+  become: False
+  gather_facts: True
+
+  vars:
+    extra_debug: False
+
+  tasks:
+
+  - ansible.builtin.debug:
+      msg: "INFO: ANSIBLE VERSION -> {{ ansible_version }}"
+
+  - ansible.builtin.command: "id"
+    register: res_id
+
+  - ansible.builtin.debug:
+      msg: "INFO: CURRENT USER -> {{ res_id.stdout }}"
+
+  # CHECK FOR COMMANDS AVAILABLE ON THE EE
+  - ansible.builtin.shell: "rev --help"
+    register: res_chkcmd_rev
+
+  - ansible.builtin.shell: "cut --help"
+    register: res_chkcmd_cut
+
+  - ansible.builtin.shell: "tr --help"
+    register: res_chkcmd_tr
+
+  - ansible.builtin.shell: "cat --help"
+    register: res_chkcmd_cat
+
+  - ansible.builtin.shell: "grep --help"
+    register: res_chkcmd_grep
+
+  - ansible.builtin.shell: "uniq --help"
+    register: res_chkcmd_uniq
+
+  - ansible.builtin.command: "pwd"
+    register: res_pwd
+
+  - ansible.builtin.debug:
+      msg: "INFO: CURRENT WORKING DIRECTORY -> {{ res_pwd.stdout }}"
+
+  # CHECK AND SHOW FOR AVAILABLE MODULES ON EE
+  - ansible.builtin.shell: "ansible-doc -l"
+    register: res_ansible_doc_list
+
+  - ansible.builtin.debug:
+      msg: "{{ res_ansible_doc_list.stdout_lines }}"
+
+  # CHECK VERSION AZ CLI
+  - ansible.builtin.command: "az version"
+    register: res_az_version
+    ignore_errors: yes
+
+  - ansible.builtin.debug:
+      msg: "{{ res_az_version.stdout_lines }}"
+    ignore_errors: yes
+
+  
+  # CHECK AND SHOW FOR AVAILABLE COLLECTIONS ON EE
+  # THIS WILL NOT WORK ON 2.9
+  - ansible.builtin.shell: "ansible-galaxy collection list"
+    register: res_ansible_galaxt_collection_list
+    ignore_errors: yes
+
+  - ansible.builtin.debug:
+      msg: "{{ res_ansible_galaxt_collection_list.stdout_lines }}"

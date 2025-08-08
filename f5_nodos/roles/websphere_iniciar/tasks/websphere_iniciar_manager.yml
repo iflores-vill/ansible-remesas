@@ -1,0 +1,44 @@
+- name: Verificar estado del Manager de Websphere
+  ansible.builtin.command: >
+    {{ parchado_websphere_dmgr_dir }}/bin/serverStatus.sh dmgr
+    -username {{ lookup('env', 'was_username') }}
+    -password {{ lookup('env', 'was_password') }}
+  register: estado_manager_websphere
+  changed_when: "'ADMU0509I' in estado_manager_websphere.stdout"
+  no_log: true
+
+- name: Manager de Websphere ya está iniciado
+  when: "'ADMU0508I' in estado_manager_websphere.stdout"
+  ansible.builtin.debug:
+    msg: "{{ estado_manager_websphere.stdout_lines }}"
+
+- name: Bloque para iniciar Manager de Websphere
+  when:
+    - "'ADMU0509I' in estado_manager_websphere.stdout"
+  block:
+    - name: Iniciar Manager de Websphere
+      ansible.builtin.command: "{{ parchado_websphere_dmgr_dir }}/bin/startManager.sh"
+      register: resultado_iniciar_manager
+      changed_when: "'ADMU3000I' in resultado_iniciar_manager.stdout"
+      async: 240
+      poll: 40
+
+    - name: Verificar que el proceso dmgr se esté ejecutando
+      ansible.builtin.shell: |
+        set -o pipefail && ps -ef | grep java | grep -i WebSphere | grep -v grep | awk '{ print $NF }'
+      register: proceso_java_websphere
+      changed_when: false
+      until: "'dmgr' in proceso_java_websphere.stdout"
+      retries: 18
+      delay: 10
+      failed_when:
+        - proceso_java_websphere.rc != 0
+        - proceso_java_websphere.rc != 1
+
+    - name: Manager de Websphere iniciado correctamente
+      ansible.builtin.debug:
+        msg: "{{ resultado_iniciar_manager.stdout_lines }}"
+  rescue:
+    - name: Manager de Websphere NO se ha iniciado correctamente
+      ansible.builtin.fail:
+        msg: "{{ resultado_iniciar_manager.stdout_lines }}"

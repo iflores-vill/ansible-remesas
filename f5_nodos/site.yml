@@ -1,0 +1,15 @@
+---
+- name: Flujo de trabajo de mantenimiento de aplicaciones
+  hosts: all
+  gather_facts: true
+  vars_files:
+    - main.yml
+  roles:
+    - role: f5_deshabilitar
+      when: ejecutar_f5 | default(true) | bool
+    - role: webseal_reiniciar
+      when: ejecutar_webseal | default(true) | bool
+    - role: websphere_iniciar
+      when: ejecutar_websphere | default(true) | bool
+    - role: f5_habilitar
+      when: ejecutar_f5 | default(true) | bool

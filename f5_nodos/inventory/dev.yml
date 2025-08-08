@@ -1,0 +1,32 @@
+---
+all:
+  children:
+    webseal_servers:
+      hosts:
+        webseal_server1:
+          ansible_host: 192.168.1.10
+          reverseProxies:
+            - "default"
+            - "portal"
+        webseal_server2:
+          ansible_host: 192.168.1.11
+          reverseProxies:
+            - "app1"
+            - "app2"
+            - "api"
+        webseal_server3:
+          ansible_host: 192.168.1.12
+          reverseProxies:
+            - "web"
+      vars:
+        ansible_user: administrador
+        ansible_password: Admin123
+        isva_user: "{{ vault_isva_user | default('admin') }}"
+        isva_password: "{{ vault_isva_password | default('password') }}"
+    servers:
+      hosts:
+        server1:
+          ansible_host: 192.168.1.7
+      vars:
+        ansible_user: administrador
+        ansible_password: Admin123

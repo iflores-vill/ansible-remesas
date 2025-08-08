@@ -1,0 +1,82 @@
+---
+- name: BBVA Provincial | F5 | Convertir nodes_info a lista
+  ansible.builtin.set_fact:
+    nodes_info_list: |
+      [
+        {% for node in nodes_info.split('\n') %}
+        {% set node_parts = node.split(',') %}
+        {"name": "{{ node_parts[0] }}", "ip": "{{ node_parts[1] }}"}{% if not loop.last %},{% endif %}
+        {% endfor %}
+      ]
+  delegate_to: localhost
+  run_once: true
+  when:
+    - nodes_info is defined and ',' in nodes_info
+    - habilitar_pools | default(false) | bool
+
+- name: BBVA Provincial | F5 | Convertir f5_ips a lista
+  ansible.builtin.set_fact:
+    f5_ips_list: "{{ f5_ips.split(',') | map('trim') | list }}"
+  delegate_to: localhost
+  run_once: true
+  when: f5_ips is string
+
+- name: BBVA Provincial | F5 | Convertir virtual_servers a lista
+  ansible.builtin.set_fact:
+    virtual_servers_list: "{{ virtual_servers.split(',') | map('trim') | list }}"
+  delegate_to: localhost
+  run_once: true
+  when:
+    - virtual_servers is string
+    - habilitar_virtual_servers | default(true) | bool
+
+- name: BBVA Provincial | F5 | Convertir pools a lista
+  ansible.builtin.set_fact:
+    pools_list: "{{ pools.split(',') | map('trim') | list }}"
+  delegate_to: localhost
+  run_once: true
+  when:
+    - pools is defined and pools is string
+    - habilitar_pools | default(false) | bool
+
+- name: BBVA Provincial | F5 | Habilitar Virtual Servers
+  f5networks.f5_modules.bigip_virtual_server:
+    provider:
+      server: "{{ item.0 }}"
+      user: "{{ lookup('env', 'F5_USER') }}"
+      password: "{{ lookup('env', 'F5_PASSWORD') }}"
+      validate_certs: false
+      server_port: 443
+      transport: rest
+    name: "{{ item.1 }}"
+    partition: "Common"
+    state: enabled
+  delegate_to: localhost
+  loop: "{{ (f5_ips_list | default(f5_ips)) | product(virtual_servers_list | default(virtual_servers)) | list }}"
+  loop_control:
+    label: "F5: {{ item.0 }}, Virtual Server: {{ item.1 }}"
+  when: habilitar_virtual_servers | default(true) | bool
+
+- name: BBVA Provincial | F5 | Habilitar nodos en pools
+  f5networks.f5_modules.bigip_pool_member:
+    provider:
+      server: "{{ item.0 }}"
+      user: "{{ lookup('env', 'F5_USER') }}"
+      password: "{{ lookup('env', 'F5_PASSWORD') }}"
+      validate_certs: false
+      server_port: 443
+      transport: rest
+    pool: "{{ item.2 }}"
+    name: "{{ item.1.name }}"
+    address: "{{ item.1.ip }}"
+    partition: "Common"
+    port: 80
+    state: enabled
+  delegate_to: localhost
+  loop: "{{ (f5_ips_list | default(f5_ips)) | product(nodes_info_list) | product(pools_list | default(pools)) | list }}"
+  loop_control:
+    label: "F5: {{ item.0 }}, Nodo: {{ item.1.name }} ({{ item.1.ip }}), Pool: {{ item.2 }}"
+  when:
+    - habilitar_pools | default(false) | bool
+    - nodes_info_list is defined
+    - (pools_list is defined or pools is defined)

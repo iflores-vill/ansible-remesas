@@ -1,0 +1,124 @@
+---
+- name: Instalación de DB2
+  hosts: all
+  become: true
+  gather_facts: true
+  vars_files:
+    - vars/main.yml
+
+  vars:
+    db2_groups:
+      - db2iadm1
+      - db2fadm1
+      - db2asgrp
+    db2_users:
+      - { name: "db2inst1", group: "db2iadm1", home: "/home/db2inst1" }
+      - { name: "db2fenc1", group: "db2fadm1", home: "/home/db2fenc1" }
+      - { name: "dasusr1",  group: "db2asgrp", home: "/home/dasusr1" }
+
+  tasks:
+
+    - name: Asegurar que /arquitectura/DB2 existe como directorio
+      ansible.builtin.file:
+        path: /arquitectura/DB2
+        state: directory
+        mode: '0755'
+
+    - name: Descomprimir el archivo de instalación de DB2
+      ansible.builtin.unarchive:
+        src: '/arquitectura/DB2/{{ archivo_db2 }}'
+        dest: /arquitectura/DB2/
+        remote_src: true
+
+    - name: Actualizar todos los paquetes del sistema
+      ansible.builtin.yum:
+        name: '*'
+        state: latest
+
+    - name: Instalar dependencias requeridas para DB2
+      ansible.builtin.yum:
+        name:
+          - pam.i686
+          - libstdc++.i686
+          - ksh
+          - perl
+        state: present
+
+    - name: Crear grupos necesarios para DB2
+      ansible.builtin.group:
+        name: "{{ item }}"
+        state: present
+      loop: "{{ db2_groups }}"
+
+    - name: Crear grupos necesarios
+      ansible.builtin.group:
+        name: "{{ item.group }}"
+        state: present
+      loop: "{{ db2_users }}"
+
+    - name: Obtener información de usuarios existentes
+      ansible.builtin.getent:
+        database: passwd
+      register: passwd_entries
+
+    - name: Crear usuarios necesarios para DB2 (solo si no existen)
+      ansible.builtin.user:
+        name: "{{ item.name }}"
+        group: "{{ item.group }}"
+        home: "{{ item.home }}"
+        shell: /bin/bash
+        create_home: yes
+        state: present
+      loop: "{{ db2_users }}"
+      when: item.name not in passwd_entries.ansible_facts.getent_passwd
+
+    - name: Instalar kernel headers que coincidan con el kernel actual
+      ansible.builtin.yum:
+        name: "kernel-headers-{{ ansible_kernel }}"
+        state: present
+
+    - name: Ejecutar el script de preinstalación de DB2
+      ansible.builtin.command:
+        cmd: /arquitectura/DB2/server_dec/db2prereqcheck -l
+      changed_when: true
+      ignore_errors: true
+
+    - name: Generar archivo de respuesta de DB2 desde template
+      ansible.builtin.template:
+        src: db2server.rsp.j2
+        dest: /arquitectura/DB2/server_dec/db2server.rsp
+        mode: "0644"
+
+    - name: Instalar DB2
+      ansible.builtin.command:
+        cmd: >
+          /arquitectura/DB2/server_dec/db2setup
+          -r /arquitectura/DB2/server_dec/db2server.rsp
+          -l /arquitectura/DB2/server_dec/db2setup.log
+          -t /arquitectura/DB2/server_dec/db2setup.trc
+      changed_when: true
+
+    - name: Verificar si el archivo db2profile existe
+      ansible.builtin.stat:
+        path: /home/db2inst1/sqllib/db2profile
+      register: db2profile_check
+
+    - name: Verificar instalación de DB2 ejecutando db2level
+      ansible.builtin.shell: |
+        . /home/db2inst1/sqllib/db2profile
+        db2level
+      become_user: db2inst1
+      become: true
+      changed_when: true
+      register: db2level_output
+      when: db2profile_check.stat.exists
+
+    - name: Mostrar resultado de db2level
+      ansible.builtin.debug:
+        var: db2level_output.stdout
+      when: db2profile_check.stat.exists
+
+    - name: Mostrar advertencia si no se encontró db2profile
+      ansible.builtin.debug:
+        msg: "No se encontró /home/db2inst1/sqllib/db2profile. Verifica que la instalación se completó y que se creó la instancia db2inst1."
+      when: not db2profile_check.stat.exists

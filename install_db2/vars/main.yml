@@ -1,0 +1,35 @@
+# Ruta donde se instalará DB2
+db2_install_path: /opt/ibm/db2/V11.5
+
+# Aceptación del acuerdo de licencia (debe ser 'ACCEPT')
+db2_license_agreement: ACCEPT
+
+# Tipo de instalación de DB2 (TYPICAL, COMPACT o CUSTOM)
+db2_install_type: TYPICAL
+
+# Nombre del usuario de la instancia principal de DB2
+db2_instance_name: db2inst1
+
+# Nombre del grupo de la instancia principal de DB2
+db2_instance_group: db2iadm1
+
+# Directorio home para el usuario de la instancia principal
+db2_instance_home: /home/db2inst
+
+# Contraseña para el usuario de la instancia principal
+db2_instance_password: "TuPasswordInstancia"
+
+# Indica si la instancia debe arrancar automáticamente al iniciar el sistema (YES/NO)
+db2_instance_autostart: "YES"
+
+# Indica si la instancia debe arrancar durante la instalación (YES/NO)
+db2_instance_start_during_install: "YES"
+
+# Nombre del usuario fenced (usuario de procesos externos)
+db2_fenced_username: db2fenc1
+
+# Nombre del grupo fenced
+db2_fenced_group: db2fadm1
+
+# Contraseña para el usuario fenced
+db2_fenced_password: "TuPasswordFenced"

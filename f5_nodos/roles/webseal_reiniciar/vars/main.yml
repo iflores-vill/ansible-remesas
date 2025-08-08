@@ -1,0 +1,2 @@
+isva_user: "{{ lookup('env', 'ISVA_USER') }}"
+isva_password: "{{ lookup('env', 'ISVA_PASSWORD') }}"
